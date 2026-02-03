@@ -111,10 +111,10 @@ async function handleCheckoutCompleted(session) {
   console.log('✅ Customer stored in database:', customerEmail);
   
   // Trigger provisioning
-  await provisionCustomer(customerId, customerEmail, plan);
+  const credentials = await provisionCustomer(customerId, customerEmail, plan);
   
   // Send welcome email
-  await sendWelcomeEmail(customerEmail, plan);
+  await sendWelcomeEmail(customerEmail, credentials);
 }
 
 async function handleSubscriptionChange(subscription) {
@@ -151,8 +151,29 @@ async function handleSubscriptionCancelled(subscription) {
 async function handlePaymentFailed(invoice) {
   console.log('⚠️ Payment failed for customer:', invoice.customer);
   
-  // TODO: Send payment failed email
-  // TODO: Suspend service after X failed attempts
+  const { sendPaymentFailedEmail } = require('./email');
+  
+  // Get customer email
+  const result = await pool.query(
+    'SELECT email FROM customers WHERE stripe_customer_id = $1',
+    [invoice.customer]
+  );
+  
+  if (result.rows.length > 0) {
+    const email = result.rows[0].email;
+    const attemptNumber = invoice.attempt_count || 1;
+    
+    await sendPaymentFailedEmail(email, attemptNumber);
+    
+    // Suspend service after 3 failed attempts
+    if (attemptNumber >= 3) {
+      await pool.query(
+        'UPDATE customers SET status = $1 WHERE stripe_customer_id = $2',
+        ['suspended', invoice.customer]
+      );
+      console.log('⚠️ Customer suspended due to payment failure:', invoice.customer);
+    }
+  }
 }
 
 // ========================================
@@ -186,13 +207,16 @@ async function provisionCustomer(customerId, email, plan) {
   }
 }
 
-async function sendWelcomeEmail(email, plan) {
-  console.log('📧 Sending welcome email to:', email);
+async function sendWelcomeEmail(email, credentials) {
+  const { sendWelcomeEmail: sendEmail } = require('./email');
   
-  // TODO: Implement email sending
-  // Use SendGrid, Resend, or similar
-  
-  console.log('✅ Welcome email sent');
+  try {
+    await sendEmail(email, credentials);
+    console.log('✅ Welcome email sent to:', email);
+  } catch (error) {
+    console.error('❌ Failed to send welcome email:', error);
+    // Don't fail provisioning if email fails
+  }
 }
 
 // ========================================
