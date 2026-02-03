@@ -85,6 +85,51 @@ app.get('/health/db', async (req, res) => {
   }
 });
 
+// Provisioning status API (for success page polling)
+app.get('/api/status', async (req, res) => {
+  const sessionId = req.query.session;
+  
+  if (!sessionId) {
+    return res.status(400).json({ error: 'session parameter required' });
+  }
+  
+  try {
+    // Get session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const customerId = session.customer;
+    
+    // Check customer provisioning status
+    const result = await pool.query(`
+      SELECT workspace_id, instance_id, api_key, access_url, provisioned_at, status
+      FROM customers
+      WHERE stripe_customer_id = $1
+    `, [customerId]);
+    
+    if (result.rows.length === 0) {
+      return res.json({ status: 'processing', message: 'Payment confirmed, provisioning starting...' });
+    }
+    
+    const customer = result.rows[0];
+    
+    if (customer.workspace_id && customer.access_url) {
+      return res.json({
+        status: 'provisioned',
+        credentials: {
+          workspaceId: customer.workspace_id,
+          instanceId: customer.instance_id,
+          apiKey: customer.api_key,
+          accessUrl: customer.access_url
+        }
+      });
+    } else {
+      return res.json({ status: 'provisioning', message: 'Setting up your workspace...' });
+    }
+  } catch (error) {
+    console.error('Status check error:', error);
+    res.status(500).json({ status: 'error', error: error.message });
+  }
+});
+
 // ========================================
 // WEBHOOK HANDLERS
 // ========================================
