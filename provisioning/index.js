@@ -7,21 +7,21 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 
-// Plan configurations
+// Plan configurations (mapped to Stripe price IDs)
 const PLANS = {
-  'price_starter': {
+  'price_1SwtCbBfSldKMuDjM3p0kyG4': {
     name: 'Starter',
     messageLimit: 5000,
     agents: 3,
     features: ['chat', 'memory', 'web_search']
   },
-  'price_pro': {
+  'price_1SwtCbBfSldKMuDjDmRHqErh': {
     name: 'Pro',
     messageLimit: 20000,
     agents: 10,
     features: ['chat', 'memory', 'web_search', 'gmail', 'calendar', 'browser']
   },
-  'price_team': {
+  'price_1SwtCcBfSldKMuDjEKBqQ6lH': {
     name: 'Team',
     messageLimit: 100000,
     agents: -1, // unlimited
