@@ -160,15 +160,30 @@ async function handlePaymentFailed(invoice) {
 // ========================================
 
 async function provisionCustomer(customerId, email, plan) {
-  console.log('🚀 Provisioning customer:', email, 'Plan:', plan);
+  const { provisionCustomer: provision } = require('./provisioning');
   
-  // TODO: Implement actual provisioning
-  // - Create Clawdbot instance
-  // - Set up workspace
-  // - Configure API keys
-  // - Send credentials
-  
-  console.log('✅ Customer provisioned successfully');
+  try {
+    const credentials = await provision(customerId, email, plan);
+    
+    // Store credentials in database
+    await pool.query(`
+      UPDATE customers
+      SET workspace_id = $1, instance_id = $2, api_key = $3, access_url = $4
+      WHERE stripe_customer_id = $5
+    `, [
+      credentials.workspaceId,
+      credentials.instanceId,
+      credentials.apiKey,
+      credentials.accessUrl,
+      customerId
+    ]);
+    
+    console.log('✅ Customer provisioned successfully:', credentials);
+    return credentials;
+  } catch (error) {
+    console.error('❌ Provisioning failed:', error);
+    throw error;
+  }
 }
 
 async function sendWelcomeEmail(email, plan) {
@@ -194,6 +209,11 @@ async function initDatabase() {
         subscription_id VARCHAR(255),
         plan VARCHAR(255),
         status VARCHAR(50),
+        workspace_id VARCHAR(255),
+        instance_id VARCHAR(255),
+        api_key VARCHAR(255),
+        access_url VARCHAR(255),
+        provisioned_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
