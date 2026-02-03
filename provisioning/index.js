@@ -86,24 +86,16 @@ async function createWorkspace(customerId, username) {
   // Create directory structure
   await execAsync(`mkdir -p ${workspacePath}/{config,memory,skills,logs}`);
   
-  // Set up basic files
-  await execAsync(`cat > ${workspacePath}/SOUL.md << 'EOF'
-# SOUL.md - Your Assistant
-
-You are a helpful AI assistant for ${username}.
-
-Be concise, resourceful, and proactive. You have access to their workspace, calendar, email, and more.
-EOF`);
+  // Copy template files
+  const templatesPath = '/var/clawdbot/templates';
+  await execAsync(`cp ${templatesPath}/SOUL.md ${workspacePath}/SOUL.md`);
+  await execAsync(`cp ${templatesPath}/USER.md ${workspacePath}/USER.md`);
+  await execAsync(`cp ${templatesPath}/TOOLS.md ${workspacePath}/TOOLS.md`);
+  await execAsync(`cp ${templatesPath}/HEARTBEAT.md ${workspacePath}/HEARTBEAT.md`);
   
-  await execAsync(`cat > ${workspacePath}/USER.md << 'EOF'
-# USER.md - About ${username}
-
-- **Name:** ${username}
-- **Email:** (will be populated)
-- **Timezone:** (will be detected)
-
-Add your preferences, goals, and context here.
-EOF`);
+  // Update USER.md with actual email
+  // (In production, use proper template engine)
+  console.log('[WORKSPACE] Template files copied');
   
   return workspaceId;
 }
