@@ -1,7 +1,37 @@
 const express = require('express');
 const cors = require('cors');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { Pool } = require('pg');
+
+// PAT-004 fix: Validate required environment variables at startup
+const REQUIRED_ENV_VARS = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'DATABASE_URL'
+];
+
+const OPTIONAL_ENV_VARS = [
+  'RESEND_API_KEY',
+  'ANTHROPIC_API_KEY',
+  'RAILWAY_TOKEN',
+  'NEON_API_KEY',
+  'ENCRYPTION_KEY',    // For encrypting Telegram tokens (generate: openssl rand -hex 32)
+  'BACKEND_URL'        // For Telegram webhook URL
+];
+
+const missingRequired = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
+if (missingRequired.length > 0) {
+  console.error('❌ Missing required environment variables:', missingRequired.join(', '));
+  console.error('Please set these variables before starting the server.');
+  process.exit(1);
+}
+
+const missingOptional = OPTIONAL_ENV_VARS.filter(v => !process.env[v]);
+if (missingOptional.length > 0) {
+  console.warn('⚠️ Missing optional environment variables:', missingOptional.join(', '));
+  console.warn('Some features may not work without these.');
+}
+
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -82,6 +112,10 @@ app.use(express.json());
 const workspaceRouter = require('./api/workspace');
 app.use('/api/workspace', workspaceRouter);
 
+// Telegram API routes
+const telegramRouter = require('./api/telegram');
+app.use('/api/telegram', telegramRouter);
+
 // Health check
 app.get('/', (req, res) => {
   res.json({ 
@@ -158,17 +192,29 @@ async function handleCheckoutCompleted(session) {
   const customerEmail = session.customer_details.email;
   const subscriptionId = session.subscription;
   
+  // BUG-008 fix: Check for idempotency - prevent duplicate provisioning
+  const existingCustomer = await pool.query(
+    'SELECT workspace_id, provisioned_at FROM customers WHERE stripe_customer_id = $1',
+    [customerId]
+  );
+  
+  if (existingCustomer.rows.length > 0 && existingCustomer.rows[0].provisioned_at) {
+    console.log(`⚠️ Customer ${customerId} already provisioned, skipping duplicate webhook`);
+    return;
+  }
+  
   // Get subscription details
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const plan = subscription.items.data[0].price.id;
   
-  // Store customer in database
+  // Store customer in database with checkout_session_id for idempotency tracking
   await pool.query(`
-    INSERT INTO customers (stripe_customer_id, email, subscription_id, plan, status, created_at)
-    VALUES ($1, $2, $3, $4, $5, NOW())
+    INSERT INTO customers (stripe_customer_id, email, subscription_id, plan, status, checkout_session_id, created_at)
+    VALUES ($1, $2, $3, $4, $5, $6, NOW())
     ON CONFLICT (stripe_customer_id) DO UPDATE
-    SET subscription_id = $3, plan = $4, status = $5, updated_at = NOW()
-  `, [customerId, customerEmail, subscriptionId, plan, 'active']);
+    SET subscription_id = $3, plan = $4, status = $5, checkout_session_id = $6, updated_at = NOW()
+    WHERE customers.provisioned_at IS NULL
+  `, [customerId, customerEmail, subscriptionId, plan, 'active', session.id]);
   
   console.log('✅ Customer stored in database:', customerEmail);
   
@@ -301,6 +347,7 @@ async function sendWelcomeEmail(email, credentials) {
 
 async function initDatabase() {
   try {
+    // Customers table with improved schema
     await pool.query(`
       CREATE TABLE IF NOT EXISTS customers (
         id SERIAL PRIMARY KEY,
@@ -309,29 +356,107 @@ async function initDatabase() {
         subscription_id VARCHAR(255),
         plan VARCHAR(255),
         status VARCHAR(50),
-        workspace_id VARCHAR(255),
+        workspace_id VARCHAR(255) UNIQUE,
         instance_id VARCHAR(255),
         api_key VARCHAR(255),
         access_url VARCHAR(255),
+        checkout_session_id VARCHAR(255),
         provisioned_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
     
+    // Add missing columns if they don't exist (for existing databases)
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='checkout_session_id') THEN
+          ALTER TABLE customers ADD COLUMN checkout_session_id VARCHAR(255);
+        END IF;
+      END $$;
+    `);
+    
+    // Conversations table with workspace isolation
     await pool.query(`
       CREATE TABLE IF NOT EXISTS conversations (
         id SERIAL PRIMARY KEY,
         workspace_id VARCHAR(255) NOT NULL,
-        user_message TEXT NOT NULL,
-        assistant_response TEXT NOT NULL,
+        agent_id VARCHAR(255) DEFAULT 'main',
+        channel VARCHAR(100) DEFAULT 'api',
+        message TEXT NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        metadata JSONB,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
     
+    // Memories table for workspace memory
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS memories (
+        id SERIAL PRIMARY KEY,
+        workspace_id VARCHAR(255) NOT NULL,
+        agent_id VARCHAR(255) DEFAULT 'main',
+        content TEXT NOT NULL,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Usage tracking with composite unique constraint
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usage_tracking (
+        id SERIAL PRIMARY KEY,
+        workspace_id VARCHAR(255) NOT NULL,
+        date DATE NOT NULL,
+        messages_sent INT DEFAULT 0,
+        api_calls INT DEFAULT 0,
+        tokens_used BIGINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(workspace_id, date)
+      )
+    `);
+    
+    // Telegram bots table for storing bot connections
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS telegram_bots (
+        id SERIAL PRIMARY KEY,
+        workspace_id VARCHAR(255) UNIQUE NOT NULL,
+        bot_id VARCHAR(100) NOT NULL,
+        bot_username VARCHAR(100),
+        bot_name VARCHAR(255),
+        token_encrypted TEXT NOT NULL,
+        webhook_url VARCHAR(500),
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_telegram_bots_workspace 
+      ON telegram_bots(workspace_id)
+    `);
+    
+    // Create indexes for performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_conversations_workspace 
       ON conversations(workspace_id, created_at DESC)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_memories_workspace 
+      ON memories(workspace_id, created_at DESC)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_usage_workspace_date 
+      ON usage_tracking(workspace_id, date)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_customers_workspace 
+      ON customers(workspace_id)
     `);
     
     console.log('✅ Database schema initialized');
