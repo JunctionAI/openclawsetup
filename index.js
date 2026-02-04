@@ -1,8 +1,21 @@
 const express = require('express');
+const cors = require('cors');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Enable CORS for dashboard origins
+app.use(cors({
+  origin: [
+    'https://clawdbotdashboard2.vercel.app',
+    'https://clawdbotdashboard.vercel.app',
+    'https://setupclaw.com',
+    'https://app.setupclaw.com',
+    'http://localhost:3000'
+  ],
+  credentials: true
+}));
 
 // PostgreSQL connection
 const pool = new Pool({
