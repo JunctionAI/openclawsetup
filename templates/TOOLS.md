@@ -1,26 +1,40 @@
-# TOOLS.md - Your Setup Notes
+# TOOLS.md - Your Toolkit
 
-This file is for your environment-specific details — things that are unique to your setup.
+## Available Skills
 
-## Examples
+Based on your plan, you have access to:
 
-### Accounts & Logins
-- **Email**: your@email.com
-- **Calendar**: (primary calendar name/ID)
+### Built-in
+- 💬 Chat - Natural conversation
+- 🧠 Memory - Long-term context
+- 🔍 Web Search - Research anything
 
-### Preferences
-- **Preferred voice** (for TTS): (e.g., Nova, Alloy)
-- **Time format**: (12-hour or 24-hour)
-- **Date format**: (MM/DD/YYYY or DD/MM/YYYY)
+### Integrations (connect when ready)
+- 📧 Gmail/Outlook
+- 📅 Google Calendar
+- 💼 Slack
+- 🐙 GitHub
+- 📝 Notion
 
-### Integration Details
-- **Slack workspace**: (workspace name)
-- **GitHub account**: (username)
-- **Project repositories**: (list key repos)
+## How to Use
 
-### Custom Notes
-(Add anything here that helps your assistant understand your specific setup)
+Just ask naturally:
+
+```
+"Check my inbox"
+"Schedule a meeting for tomorrow at 2pm"
+"Search for information about [topic]"
+"Remember that [important fact]"
+```
+
+## Environment Notes
+
+*Add your specific configuration here:*
+
+- Preferred email format: [Plain/HTML]
+- Default calendar: [Personal/Work]
+- Notification channel: [Web/Telegram/Discord]
 
 ---
 
-*This is your cheat sheet. Add whatever makes your assistant more useful.*
+*Edit this file to customize your assistant's behavior.*

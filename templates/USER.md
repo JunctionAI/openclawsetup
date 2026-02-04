@@ -1,35 +1,41 @@
 # USER.md - About You
 
-- **Name:** (your name)
-- **Email:** (will be auto-filled)
-- **Timezone:** (will be auto-detected)
-- **Pronouns:** (optional)
+## Profile
 
-## What You Do
-
-(Describe your work, projects, business)
-
-## What You Need From Your Assistant
-
-(What should Clawdbot help you with?)
+- **Name:** [Your name]
+- **Email:** [Your email]
+- **Timezone:** [Your timezone]
 
 ## Preferences
 
-- **Working hours:** (e.g., 9am-5pm EST)
-- **Communication style:** (e.g., concise, detailed, casual, formal)
-- **Priorities:** (e.g., speed over perfection, quality over quantity)
+- **Communication Style:** [Formal/Casual/Concise]
+- **Work Hours:** [e.g., 9am-5pm]
+- **Notification Preferences:** [When to alert you]
+
+## Projects
+
+*Add your current projects here*
+
+- Project 1: [Description]
+- Project 2: [Description]
+
+## Important Contacts
+
+*People I should know about*
+
+- [Name]: [Relationship/Role]
 
 ## Goals
 
-### 2026 Goals
-1. (Goal 1)
-2. (Goal 2)
-3. (Goal 3)
+*What are you working towards?*
 
-## Context
+1. Short-term: [This week/month]
+2. Long-term: [This year]
 
-(Add any important context about your life, work, or preferences that will help your assistant serve you better)
+## Notes
+
+*Anything else I should know*
 
 ---
 
-*Edit this file to teach your assistant about you. The more it knows, the better it can help.*
+*Update this file to help your AI assistant understand you better.*

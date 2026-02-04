@@ -15,7 +15,12 @@ const OPTIONAL_ENV_VARS = [
   'RAILWAY_TOKEN',
   'NEON_API_KEY',
   'ENCRYPTION_KEY',    // For encrypting Telegram tokens (generate: openssl rand -hex 32)
-  'BACKEND_URL'        // For Telegram webhook URL
+  'BACKEND_URL',       // For Telegram webhook URL
+  'TELEGRAM_BOT_TOKEN', // Multi-tenant Telegram bot token (ONE bot serves all users)
+  'ALLY_BOT_TOKEN',    // Telegram bot token for @AllyBot (managed multi-tenant)
+  'WEBSITE_URL',        // Frontend URL for signup links
+  'ADMIN_SECRET',       // Secret for admin API endpoints
+  'ADMIN_API_KEY'       // Admin API key for Ally setup endpoints
 ];
 
 const missingRequired = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
@@ -112,9 +117,13 @@ app.use(express.json());
 const workspaceRouter = require('./api/workspace');
 app.use('/api/workspace', workspaceRouter);
 
-// Telegram API routes
+// Telegram API routes (legacy BYOB model)
 const telegramRouter = require('./api/telegram');
 app.use('/api/telegram', telegramRouter);
+
+// Ally Bot routes (managed multi-tenant model)
+const allyRouter = require('./api/ally');
+app.use('/api/ally', allyRouter);
 
 // Health check
 app.get('/', (req, res) => {
@@ -436,6 +445,88 @@ async function initDatabase() {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_telegram_bots_workspace 
       ON telegram_bots(workspace_id)
+    `);
+    
+    // ========================================
+    // ALLY BOT TABLES (Managed Multi-tenant)
+    // ========================================
+    
+    // Ally workspaces (one per user)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ally_workspaces (
+        id VARCHAR(255) PRIMARY KEY,
+        link_code VARCHAR(10) UNIQUE NOT NULL,
+        api_key VARCHAR(255) UNIQUE,
+        plan VARCHAR(50) DEFAULT 'free',
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Ally users (Google-authenticated)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ally_users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255),
+        google_id VARCHAR(255),
+        workspace_id VARCHAR(255) REFERENCES ally_workspaces(id),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Telegram links (maps Telegram user ID to workspace)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ally_telegram_links (
+        id SERIAL PRIMARY KEY,
+        workspace_id VARCHAR(255) REFERENCES ally_workspaces(id),
+        telegram_user_id VARCHAR(100) UNIQUE NOT NULL,
+        telegram_username VARCHAR(100),
+        telegram_first_name VARCHAR(255),
+        telegram_chat_id VARCHAR(100),
+        linked_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Ally conversations
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ally_conversations (
+        id SERIAL PRIMARY KEY,
+        workspace_id VARCHAR(255) NOT NULL,
+        telegram_user_id VARCHAR(100),
+        message TEXT NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Ally usage tracking
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ally_usage (
+        id SERIAL PRIMARY KEY,
+        workspace_id VARCHAR(255) NOT NULL,
+        date DATE NOT NULL,
+        messages_count INT DEFAULT 0,
+        UNIQUE(workspace_id, date)
+      )
+    `);
+    
+    // Indexes for Ally tables
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ally_users_email ON ally_users(email)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ally_telegram_links_user 
+      ON ally_telegram_links(telegram_user_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ally_conversations_workspace 
+      ON ally_conversations(workspace_id, created_at DESC)
     `);
     
     // Create indexes for performance

@@ -115,16 +115,35 @@ class NeonProvisioner {
     try {
       await client.connect();
 
+      // BUG-009 fix: Create pgvector extension if not exists
+      try {
+        await client.query('CREATE EXTENSION IF NOT EXISTS vector;');
+        console.log(`[NEON] pgvector extension enabled for ${workspaceId}`);
+      } catch (extError) {
+        console.warn(`[NEON] Could not enable pgvector (may not be available): ${extError.message}`);
+        // Continue without vector support - will use text search instead
+      }
+
       // Create tables for agent memory, skills, etc.
+      // Note: vector column may fail if extension not available
       await client.query(`
         CREATE TABLE IF NOT EXISTS memories (
           id SERIAL PRIMARY KEY,
           agent_id VARCHAR(255) NOT NULL,
           content TEXT NOT NULL,
           metadata JSONB,
-          embedding vector(1536),
           created_at TIMESTAMP DEFAULT NOW()
         );
+        
+        -- Try to add vector column separately (may fail if extension not available)
+        DO $$ 
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+            ALTER TABLE memories ADD COLUMN IF NOT EXISTS embedding vector(1536);
+          END IF;
+        EXCEPTION WHEN OTHERS THEN
+          NULL; -- Ignore if vector type doesn't exist
+        END $$;
 
         CREATE TABLE IF NOT EXISTS conversations (
           id SERIAL PRIMARY KEY,

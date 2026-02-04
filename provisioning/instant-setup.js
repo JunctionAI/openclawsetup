@@ -24,8 +24,8 @@ async function instantProvision(customerId, email, plan) {
     fs.promises.mkdir(path.join(workspacePath, 'logs'), { recursive: true }),
   ]);
   
-  // Copy template files in parallel
-  const templatePath = 'C:\\Users\\Nightgalem\\clawd';
+  // SEC-010 fix: Use environment variable for template path
+  const templatePath = process.env.TEMPLATE_PATH || path.join(__dirname, '..', 'templates');
   const filesToCopy = [
     'AGENTS.md',
     'SOUL.md', 
@@ -142,7 +142,8 @@ I'm here 24/7. Let's build something great together!
 async function prewarmSystem() {
   console.log('[PREWARM] Warming up provisioning system...');
   
-  const templatePath = 'C:\\Users\\Nightgalem\\clawd';
+  // SEC-010 fix: Use environment variable for template path
+  const templatePath = process.env.TEMPLATE_PATH || path.join(__dirname, '..', 'templates');
   const files = ['AGENTS.md', 'SOUL.md', 'USER.md', 'TOOLS.md', 'HEARTBEAT.md'];
   
   // Load templates into memory

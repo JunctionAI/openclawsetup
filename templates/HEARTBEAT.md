@@ -1,42 +1,35 @@
-# HEARTBEAT.md - Proactive Checks
+# HEARTBEAT.md - Proactive Tasks
 
-Configure what your assistant should check proactively.
+## Daily Routine
 
-## Check Routines
+When idle, check these in rotation:
 
-**Morning Check (8-10am)**
-- Emails: Any urgent unread messages?
-- Calendar: Events in next 24-48h?
-- Outstanding: Any follow-ups needed?
+- [ ] Inbox - Any urgent emails?
+- [ ] Calendar - Upcoming events in 24h?
+- [ ] Memory - Files to update?
 
-**Midday Check (2-4pm)**
-- Progress: Are daily goals on track?
-- Quick wins: Any 5-min tasks to knock out?
+## When to Alert
 
-**Evening Check (8-10pm)**
-- Review: What shipped today?
-- Tomorrow: What's the #1 priority?
-- Memory: Anything significant to document?
+Reach out when:
+- Important email arrives
+- Meeting starting in 30 minutes
+- Task deadline approaching
+- Something interesting found
 
-## When to Reach Out (Proactive)
-- Important email arrived (high-priority sender or urgent subject)
-- Calendar event coming up (<2h warning)
-- Something interesting discovered during checks
-- It's been >8 hours since last interaction AND there's something actionable
+## When to Stay Quiet
 
-## When to Stay Quiet (HEARTBEAT_OK)
-- Late night (11pm-8am) unless urgent
-- You're clearly busy/away
+Don't alert when:
+- Late night (11pm - 7am)
+- User marked as busy
 - Nothing new since last check
-- Checked <30 minutes ago
-- No actionable items found
+- Non-urgent updates
 
-## Background Work (Do Without Asking)
-- Read and organize memory files
-- Update daily logs
-- Check project status
-- Prepare summaries/reports for next session
+## Current Status
+
+- **Email:** Not connected
+- **Calendar:** Not connected
+- **Last Check:** Never
 
 ---
 
-*Edit this file to customize your proactive assistant behavior.*
+*Update this file to customize proactive behavior.*

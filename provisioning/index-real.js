@@ -7,27 +7,8 @@ const RailwayProvisioner = require('./railway-provisioner');
 const { NeonProvisioner } = require('./neon-provisioner');
 const WorkspaceBuilder = require('./workspace-builder');
 
-// Plan configurations (mapped to Stripe price IDs)
-const PLANS = {
-  'price_1SwtCbBfSldKMuDjM3p0kyG4': {
-    name: 'Starter',
-    messageLimit: 5000,
-    agents: 3,
-    features: ['chat', 'memory', 'web_search']
-  },
-  'price_1SwtCbBfSldKMuDjDmRHqErh': {
-    name: 'Pro',
-    messageLimit: 20000,
-    agents: 10,
-    features: ['chat', 'memory', 'web_search', 'gmail', 'calendar', 'browser']
-  },
-  'price_1SwtCcBfSldKMuDjEKBqQ6lH': {
-    name: 'Team',
-    messageLimit: 100000,
-    agents: -1, // unlimited
-    features: ['all']
-  }
-};
+// PAT-001 fix: Use shared plans module
+const { PLANS, getPlan } = require('../plans');
 
 /**
  * Main provisioning orchestrator
@@ -37,7 +18,7 @@ async function provisionCustomer(customerId, email, planId) {
   console.log(`\n🚀 [REAL PROVISION] Starting for ${email} (${planId})`);
   console.log(`[PROVISION] This will create ACTUAL infrastructure`);
   
-  const plan = PLANS[planId] || PLANS['price_1SwtCbBfSldKMuDjM3p0kyG4'];
+  const plan = getPlan(planId);
   const startTime = Date.now();
 
   try {

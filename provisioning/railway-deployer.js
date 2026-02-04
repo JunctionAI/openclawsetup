@@ -192,8 +192,8 @@ async function provisionSharedInstance(customerId, email, plan) {
   const fs = require('fs');
   const path = require('path');
   
-  // Copy template files from current Clawdbot setup
-  const templatePath = 'C:\\Users\\Nightgalem\\clawd';
+  // SEC-010 fix: Use environment variable for template path
+  const templatePath = process.env.TEMPLATE_PATH || path.join(__dirname, '..', 'templates');
   
   // Create directories
   fs.mkdirSync(workspacePath, { recursive: true });

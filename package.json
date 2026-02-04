@@ -5,14 +5,25 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:unit": "jest --testPathPattern=__tests__/unit",
+    "test:integration": "jest --testPathPattern=__tests__/integration",
+    "test:e2e": "jest --testPathPattern=__tests__/e2e"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "stripe": "^14.14.0",
     "pg": "^8.11.3",
     "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4",
+    "@types/jest": "^29.5.12"
   },
   "engines": {
     "node": ">=18.0.0"
