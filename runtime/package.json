@@ -1,0 +1,23 @@
+{
+  "name": "clawdbot-runtime",
+  "version": "1.0.0",
+  "description": "Clawdbot customer runtime instance",
+  "main": "clawdbot-server.js",
+  "scripts": {
+    "start": "node clawdbot-server.js",
+    "dev": "nodemon clawdbot-server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.3",
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

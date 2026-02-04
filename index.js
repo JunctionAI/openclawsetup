@@ -65,6 +65,10 @@ app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (re
 // Other routes need JSON parser
 app.use(express.json());
 
+// Workspace API routes
+const workspaceRouter = require('./api/workspace');
+app.use('/api/workspace', workspaceRouter);
+
 // Health check
 app.get('/', (req, res) => {
   res.json({ 
@@ -226,7 +230,8 @@ async function handlePaymentFailed(invoice) {
 // ========================================
 
 async function provisionCustomer(customerId, email, plan) {
-  const { provisionCustomer: provision } = require('./provisioning');
+  // Use REAL provisioning system (not mocks!)
+  const { provisionCustomer: provision } = require('./provisioning/index-real');
   
   try {
     const credentials = await provision(customerId, email, plan);
@@ -234,7 +239,12 @@ async function provisionCustomer(customerId, email, plan) {
     // Store credentials in database
     await pool.query(`
       UPDATE customers
-      SET workspace_id = $1, instance_id = $2, api_key = $3, access_url = $4
+      SET workspace_id = $1, 
+          instance_id = $2, 
+          api_key = $3, 
+          access_url = $4,
+          provisioned_at = NOW(),
+          status = 'active'
       WHERE stripe_customer_id = $5
     `, [
       credentials.workspaceId,
@@ -248,6 +258,14 @@ async function provisionCustomer(customerId, email, plan) {
     return credentials;
   } catch (error) {
     console.error('❌ Provisioning failed:', error);
+    
+    // Mark customer as failed in database
+    await pool.query(`
+      UPDATE customers
+      SET status = 'provisioning_failed'
+      WHERE stripe_customer_id = $1
+    `, [customerId]);
+    
     throw error;
   }
 }
@@ -287,6 +305,22 @@ async function initDatabase() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        workspace_id VARCHAR(255) NOT NULL,
+        user_message TEXT NOT NULL,
+        assistant_response TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_conversations_workspace 
+      ON conversations(workspace_id, created_at DESC)
+    `);
+    
     console.log('✅ Database schema initialized');
   } catch (error) {
     console.error('❌ Database initialization failed:', error);

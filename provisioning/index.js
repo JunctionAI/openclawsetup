@@ -47,27 +47,28 @@ async function provisionCustomer(customerId, email, planId) {
     const config = await generateConfig(customerId, email, plan, workspaceId);
     console.log(`✅ [PROVISION] Config generated`);
     
-    // Step 3: Initialize Clawdbot instance
-    const instanceId = await deployClawdbotInstance(workspaceId, config);
-    console.log(`✅ [PROVISION] Clawdbot instance deployed: ${instanceId}`);
+    // Step 3: Initialize Clawdbot instance (REAL deployment)
+    const deployment = await deployClawdbotInstance(workspaceId, config);
+    console.log(`✅ [PROVISION] Clawdbot instance deployed: ${deployment.instanceId}`);
     
     // Step 4: Set up agent skills based on plan
-    await installSkills(workspaceId, plan.features);
+    await installSkills(deployment.workspacePath || workspaceId, plan.features);
     console.log(`✅ [PROVISION] Skills installed: ${plan.features.join(', ')}`);
     
     // Step 5: Initialize memory system
-    await initializeMemory(workspaceId, email);
+    await initializeMemory(deployment.workspacePath || workspaceId, email);
     console.log(`✅ [PROVISION] Memory system initialized`);
     
-    // Step 6: Send credentials & welcome
+    // Step 6: Return REAL credentials
     const credentials = {
-      workspaceId,
-      instanceId,
-      accessUrl: `https://app.setupclaw.com/${workspaceId}`,
-      apiKey: generateApiKey(customerId)
+      workspaceId: deployment.workspaceId,
+      instanceId: deployment.instanceId,
+      accessUrl: deployment.accessUrl,
+      apiKey: deployment.apiKey
     };
     
     console.log(`✅ [PROVISION] Complete for ${email}`);
+    console.log(`✅ [PROVISION] Access URL: ${credentials.accessUrl}`);
     return credentials;
     
   } catch (error) {
@@ -127,25 +128,32 @@ async function generateConfig(customerId, email, plan, workspaceId) {
 }
 
 /**
- * Deploy Clawdbot instance (Docker container or process)
+ * Deploy Clawdbot instance (REAL IMPLEMENTATION)
  */
 async function deployClawdbotInstance(workspaceId, config) {
-  // TODO: Actual deployment logic
-  // For now, return mock instance ID
+  const { provisionSharedInstance } = require('./railway-deployer');
   
-  const instanceId = `inst_${workspaceId}`;
-  
-  console.log(`[DEPLOY] Creating instance ${instanceId}`);
+  console.log(`[DEPLOY] Creating REAL instance for ${workspaceId}`);
   console.log(`[DEPLOY] Config:`, JSON.stringify(config, null, 2));
   
-  // In production, this would:
-  // - Spin up Docker container
-  // - Or start Railway service
-  // - Or allocate cloud VM
-  // - Configure networking
-  // - Set environment variables
+  // Use shared instance approach (fast, works today)
+  const deployment = await provisionSharedInstance(
+    config.customerId,
+    config.email,
+    {
+      name: config.plan,
+      messageLimit: config.limits.messagesPerMonth,
+      agents: config.limits.maxAgents,
+      features: config.features
+    }
+  );
   
-  return instanceId;
+  console.log(`[DEPLOY] Instance deployed: ${deployment.workspaceId}`);
+  
+  return {
+    instanceId: `inst_${workspaceId}`,
+    ...deployment
+  };
 }
 
 /**
