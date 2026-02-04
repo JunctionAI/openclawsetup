@@ -49,6 +49,8 @@ router.get('/:workspaceId', async (req, res) => {
 /**
  * Chat with workspace Clawdbot
  */
+const chatHandler = require('./chat-handler');
+
 router.post('/:workspaceId/chat', async (req, res) => {
   const { workspaceId } = req.params;
   const { message } = req.body;
@@ -58,38 +60,27 @@ router.post('/:workspaceId/chat', async (req, res) => {
   }
   
   try {
-    // Get workspace path
-    const workspacePath = `./workspaces/${workspaceId}`;
+    // Get customer plan from database
+    const customerResult = await pool.query(
+      'SELECT plan FROM customers WHERE workspace_id = $1',
+      [workspaceId]
+    );
     
-    // Execute Clawdbot command
-    // This assumes Clawdbot CLI is available and configured
-    const command = `clawdbot chat --workspace "${workspacePath}" --message "${message.replace(/"/g, '\\"')}"`;
+    const plan = customerResult.rows[0]?.plan || 'Starter';
     
-    const { stdout, stderr } = await execAsync(command);
+    // Use the improved chat handler (works without CLI)
+    const result = await chatHandler.chat(workspaceId, message, { plan });
     
-    if (stderr && !stdout) {
-      throw new Error(stderr);
-    }
-    
-    // Parse Clawdbot response
-    // Format: JSON with { response, memory_updated, etc. }
-    let response;
-    try {
-      response = JSON.parse(stdout);
-    } catch {
-      // If not JSON, treat as plain text response
-      response = { response: stdout.trim() };
-    }
-    
-    // Log conversation to database (optional)
+    // Log conversation to database
     await pool.query(
       'INSERT INTO conversations (workspace_id, user_message, assistant_response, created_at) VALUES ($1, $2, $3, NOW())',
-      [workspaceId, message, response.response]
+      [workspaceId, message, result.response]
     );
     
     res.json({
-      response: response.response,
-      memory_updated: response.memory_updated || false
+      response: result.response,
+      memory_updated: result.memory_updated || false,
+      model: result.model
     });
     
   } catch (error) {
